@@ -1,0 +1,40 @@
+@import 'tailwindcss';
+
+/*
+  Auditoría de despachos por PLC — estilos base.
+
+  La app se usa a la intemperie y con una mano ocupada: se prioriza el
+  contraste alto, los botones grandes y la tipografía del sistema
+  (sin descargas, para que funcione sin conexión).
+*/
+
+/* Área inferior segura en celulares con barra de gestos. */
+:root {
+  --area-segura-inferior: env(safe-area-inset-bottom, 0px);
+}
+
+/* Sin destello al tocar en móviles: los estados activos ya dan respuesta. */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Respeta la preferencia de menos movimiento (barra de avance). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+/* Ocultar las flechitas de los campos numéricos: usamos botones de + y −. */
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
