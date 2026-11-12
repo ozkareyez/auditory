@@ -152,23 +152,28 @@ export function EncabezadoDespacho({
   mostrarNota?: boolean
   children?: ReactNode
 }) {
-  const ubicacion = [despacho.ruta, despacho.placa].filter((dato) => dato !== '')
+  const ruta = despacho.ruta.trim()
+  const placa = despacho.placa.trim()
 
   return (
     <header>
       <div className="cinta-precaucion h-1.5" />
       <div className="mx-auto max-w-md px-4 pb-4 pt-4">
         <div className="border-2 border-tinta bg-hoja">
-          <div className="grid grid-cols-[1.35fr_1fr] divide-x divide-linea border-b border-linea">
+          <div className="grid grid-cols-[1.3fr_1fr] divide-x divide-linea border-b border-linea">
             <div className="min-w-0 px-3 py-2">
               <p className="text-[11px] font-medium text-acero">PLC</p>
               <p className="truncate font-mono text-lg font-black tracking-tight">{despacho.plc}</p>
             </div>
             <div className="min-w-0 px-3 py-2">
               <p className="text-[11px] font-medium text-acero">Ruta / placa</p>
-              <p className="truncate text-sm font-semibold">
-                {ubicacion.length > 0 ? ubicacion.join(' / ') : 'Sin dato'}
-              </p>
+              {ruta !== '' && (
+                <p className="truncate text-xs font-semibold leading-snug">{ruta}</p>
+              )}
+              {placa !== '' && (
+                <p className="mt-0.5 truncate font-mono text-sm font-bold leading-snug">{placa}</p>
+              )}
+              {ruta === '' && placa === '' && <p className="text-sm font-semibold">Sin dato</p>}
             </div>
           </div>
           <div className="px-3 py-2">
