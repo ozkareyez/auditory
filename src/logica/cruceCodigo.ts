@@ -1,4 +1,5 @@
 import type { CruceCodigo, LineaDespacho } from '../tipos'
+import { normalizarUm } from './auditoria'
 import { normalizar } from './normalizar'
 
 /**
@@ -91,6 +92,19 @@ export function coincideBusquedaManual(linea: LineaDespacho, consulta: string): 
   if (normalizar(linea.descripcion).includes(objetivo)) return true
   if (normalizar(linea.referencia).includes(objetivo)) return true
   if (linea.codigoBarras !== '' && normalizar(linea.codigoBarras).includes(objetivo)) return true
+
+  // Unidad de medida: "cajas", "CJA" o "bultos" ubican el grupo de una vez,
+  // aunque el archivo use la abreviatura o el nombre completo.
+  const umLinea = normalizarUm(linea.um)
+  const umConsulta = normalizarUm(consulta)
+  if (umLinea !== '' && umConsulta !== '') {
+    if (umLinea === umConsulta) return true
+    // Coincidencia parcial al ir escribiendo ("caj" → "caja"), pero sin que
+    // una sola letra haga aparecer todas las líneas de una UM.
+    if (umConsulta.length >= 2 && umLinea.includes(umConsulta)) return true
+    if (umLinea.length >= 2 && umConsulta.includes(umLinea)) return true
+  }
+
   // Lector de código de barras: la referencia de la línea son los últimos
   // 6 dígitos del código escaneado.
   return coincideReferencia(linea.referencia, referenciaDesdeCodigo(consulta))

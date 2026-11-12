@@ -106,7 +106,10 @@ export default function Escaner({ onLeer, onCerrar }: Props) {
         stream = nuevoStream
 
         await nuevoLector.decodeFromStream(nuevoStream, video, (resultado) => {
-          if (cerrado || resultado === undefined) return
+          // @zxing/library avisa los intentos fallidos con `null` (no con
+          // `undefined`); si no se filtra, el callback revienta y el bucle de
+          // lectura se detiene justo después de abrir la cámara.
+          if (cerrado || !resultado) return
           cerrado = true
           const codigo = resultado.getText()
           detener()

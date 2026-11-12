@@ -1,7 +1,7 @@
 // Pantalla de auditoría: revisar línea por línea con conteo manual (RF-04, RF-06).
 import { useEffect, useMemo, useState } from 'react'
 import type { Despacho, LineaAuditoria } from '../tipos'
-import { agruparPorUm, estadoDeLinea, diferenciaDeLinea } from '../logica/auditoria'
+import { agruparPorUm, estadoDeLinea, diferenciaDeLinea, normalizarUm } from '../logica/auditoria'
 import { coincideBusquedaManual, destinoEscaneo } from '../logica/cruceCodigo'
 import Escaner from './Escaner'
 import { Aviso, Boton, InsigniaEstado, TotalesDocumento } from './comunes'
@@ -80,6 +80,28 @@ export default function PantallaAuditoria(props: Props) {
     [visibles],
   )
 
+  // UMs del despacho completo, para saltar a una unidad de medida sin escribir.
+  const ums = useMemo(() => {
+    const conteo = new Map<string, number>()
+    for (const linea of lineas) {
+      const um = linea.um.trim()
+      if (um === '') continue
+      conteo.set(um, (conteo.get(um) ?? 0) + 1)
+    }
+    return [...conteo.entries()]
+      .sort(([a], [b]) => a.localeCompare(b, 'es', { sensitivity: 'base' }))
+      .map(([um, total]) => ({ um, total }))
+  }, [lineas])
+
+  /** Filtra la lista por una UM; si ya estaba activa, quita el filtro. */
+  function alElegirUm(um: string) {
+    const activa = textoBusqueda !== '' && normalizarUm(textoBusqueda) === normalizarUm(um)
+    setTextoBusqueda(activa ? '' : um)
+    if (!activa) setSoloPendientes(false)
+    setAvisoEscaneo(null)
+    setResaltada(null)
+  }
+
   return (
     <div className="min-h-dvh pb-32">
       {/* Encabezado tipo remesa: PLC, ruta, placa y avance del conteo. */}
@@ -117,7 +139,7 @@ export default function PantallaAuditoria(props: Props) {
       {/* Búsqueda y filtro de líneas (RF-04 y RF-06). */}
       <section className="mx-auto max-w-md px-4 pt-5">
         <label htmlFor="buscar-producto" className="block text-sm font-medium text-zinc-700">
-          Buscar producto
+          Buscar producto o UM
         </label>
         <div className="mt-1.5 flex gap-2">
           <input
@@ -128,7 +150,7 @@ export default function PantallaAuditoria(props: Props) {
               setAvisoEscaneo(null)
               setResaltada(null)
             }}
-            placeholder="Descripción, referencia o código escaneado"
+            placeholder="Descripción, referencia, UM o código escaneado"
             autoComplete="off"
             className="min-h-12 min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-3.5 text-base
               focus-visible:outline-2 focus-visible:outline-slate-900"
@@ -173,6 +195,61 @@ export default function PantallaAuditoria(props: Props) {
           />
           Ver solo pendientes
         </label>
+
+        {/* Acceso rápido a cada unidad de medida (cajas, bultos, unidades…). */}
+        {ums.length > 1 && (
+          <div className="mt-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+              Ir a una unidad de medida
+            </p>
+            <div className="mt-1.5 flex gap-2 overflow-x-auto pb-1">
+              <button
+                type="button"
+                aria-pressed={textoBusqueda === ''}
+                onClick={() => {
+                  setTextoBusqueda('')
+                  setAvisoEscaneo(null)
+                  setResaltada(null)
+                }}
+                className={`flex h-11 shrink-0 items-center rounded-full border px-4 text-sm font-semibold
+                  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 ${
+                    textoBusqueda === ''
+                      ? 'border-slate-900 bg-slate-900 text-white'
+                      : 'border-slate-300 bg-white text-slate-700'
+                  }`}
+              >
+                Todas
+              </button>
+              {ums.map(({ um, total }) => {
+                const activa =
+                  textoBusqueda !== '' && normalizarUm(textoBusqueda) === normalizarUm(um)
+                return (
+                  <button
+                    key={um}
+                    type="button"
+                    aria-pressed={activa}
+                    onClick={() => alElegirUm(um)}
+                    className={`flex h-11 shrink-0 items-center gap-2 rounded-full border px-4 text-sm font-semibold
+                      focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 ${
+                        activa
+                          ? 'border-slate-900 bg-slate-900 text-white'
+                          : 'border-slate-300 bg-white text-slate-700'
+                      }`}
+                  >
+                    <span>{um}</span>
+                    <span
+                      className={`rounded-full px-1.5 py-0.5 font-mono text-xs ${
+                        activa ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                      }`}
+                    >
+                      {total}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
       </section>
 
       {/* Líneas del despacho, como una sola hoja de conteo. */}

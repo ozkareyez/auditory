@@ -21,6 +21,15 @@ const lineas: LineaDespacho[] = [
     peso: '2',
     codigoBarras: '750100100202',
   },
+  {
+    referencia: '100203',
+    descripcion: 'Caja de paños de cocina',
+    cantidadEsperada: 2,
+    factura: 'FE-2',
+    um: 'CJA',
+    peso: '10',
+    codigoBarras: '750100100203',
+  },
 ]
 
 describe('referenciaDesdeCodigo', () => {
@@ -111,6 +120,17 @@ describe('coincideBusquedaManual (RF-06)', () => {
     // El lector manda el código completo; la referencia son sus últimos 6 dígitos.
     expect(coincideBusquedaManual(lineas[0], '440999100201')).toBe(true)
     expect(coincideBusquedaManual(lineas[1], '440999100201')).toBe(false)
+  })
+
+  it('filtra por unidad de medida aunque se escriba en plural', () => {
+    expect(coincideBusquedaManual(lineas[2], 'cajas')).toBe(true)
+    expect(coincideBusquedaManual(lineas[2], 'CJA')).toBe(true)
+    expect(coincideBusquedaManual(lineas[0], 'cajas')).toBe(false)
+  })
+
+  it('filtra por el nombre completo de la unidad de medida', () => {
+    expect(coincideBusquedaManual(lineas[0], 'unidades')).toBe(true)
+    expect(coincideBusquedaManual(lineas[0], 'UND')).toBe(true)
   })
 
   it('deja pasar todo cuando la consulta está vacía', () => {

@@ -32,6 +32,42 @@ function compararLineas<T extends { descripcion: string; referencia: string }>(a
 }
 
 /**
+ * Lleva las abreviaturas y los plurales de las unidades de medida a una
+ * forma común, para que "cajas", "CJA" y "caja" encuentren el mismo grupo.
+ */
+const SINONIMOS_UM: Record<string, string> = {
+  cja: 'caja',
+  cajas: 'caja',
+  cj: 'caja',
+  bto: 'bulto',
+  bultos: 'bulto',
+  blt: 'bulto',
+  und: 'unidad',
+  un: 'unidad',
+  unidad: 'unidad',
+  unidades: 'unidad',
+  pac: 'paquete',
+  pqt: 'paquete',
+  paquete: 'paquete',
+  paquetes: 'paquete',
+  doc: 'docena',
+  docena: 'docena',
+  docenas: 'docena',
+  kg: 'kilo',
+  kilo: 'kilo',
+  kilos: 'kilo',
+  lt: 'litro',
+  l: 'litro',
+  litro: 'litro',
+  litros: 'litro',
+}
+
+export function normalizarUm(um: string): string {
+  const base = normalizar(um)
+  return SINONIMOS_UM[base] ?? base
+}
+
+/**
  * Organiza las líneas por unidad de medida: cada UM (BTO, CJA, PAQ, PAC…)
  * queda en su propio grupo, los grupos van en orden alfabético y dentro de
  * cada uno las líneas también se ordenan alfabéticamente por descripción.
