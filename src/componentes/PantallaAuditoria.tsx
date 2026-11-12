@@ -1,7 +1,7 @@
 // Pantalla de auditoría: revisar línea por línea con conteo manual (RF-04, RF-06).
 import { useEffect, useMemo, useState } from 'react'
 import type { Despacho, LineaAuditoria } from '../tipos'
-import { estadoDeLinea, diferenciaDeLinea } from '../logica/auditoria'
+import { agruparPorUm, estadoDeLinea, diferenciaDeLinea } from '../logica/auditoria'
 import { coincideBusquedaManual, destinoEscaneo } from '../logica/cruceCodigo'
 import Escaner from './Escaner'
 import { Aviso, Boton, InsigniaEstado, TotalesDocumento } from './comunes'
@@ -74,6 +74,12 @@ export default function PantallaAuditoria(props: Props) {
     [lineas, soloPendientes, textoBusqueda],
   )
 
+  // Las líneas visibles se separan por UM y se ordenan alfabéticamente.
+  const grupos = useMemo(
+    () => agruparPorUm(visibles.map(({ linea, indice }) => ({ ...linea, indice }))),
+    [visibles],
+  )
+
   return (
     <div className="min-h-dvh pb-32">
       {/* Encabezado tipo remesa: PLC, ruta, placa y avance del conteo. */}
@@ -86,7 +92,7 @@ export default function PantallaAuditoria(props: Props) {
             </p>
           )}
 
-          {/* Totales de control del documento (facturas, líneas, unidades, kg). */}
+          {/* Totales de control del documento (facturas, referencias, unidades, kg). */}
           <div className="mt-5">
             <TotalesDocumento despacho={despacho} />
           </div>
@@ -176,68 +182,76 @@ export default function PantallaAuditoria(props: Props) {
             No hay líneas que coincidan con la búsqueda o el filtro.
           </p>
         ) : (
-          <ul className="divide-y divide-zinc-100 rounded-xl border border-zinc-200 bg-white">
-            {visibles.map(({ linea, indice }) => {
-              const estado = estadoDeLinea(linea)
-              const diferencia = diferenciaDeLinea(linea)
-              return (
-                <li
-                  key={`${linea.referencia}-${indice}`}
-                  id={`linea-${indice}`}
-                  className={`p-4 ${resaltada === indice ? 'bg-slate-50 ring-2 ring-inset ring-slate-900/50' : ''}`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="font-mono text-sm font-bold text-slate-900">
-                        {linea.referencia}
-                        {linea.um !== '' && <span className="font-normal text-zinc-500"> · {linea.um}</span>}
-                      </p>
-                      <p className="mt-0.5 text-[15px] leading-snug text-zinc-800">{linea.descripcion}</p>
-                    </div>
-                    {linea.reversion && estado !== 'completo' ? (
-                      <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-900">
-                        Reversión
-                      </span>
-                    ) : (
-                      <InsigniaEstado estado={estado} />
-                    )}
-                  </div>
+          <div className="space-y-5">
+            {grupos.map((grupo) => (
+              <section key={grupo.um} aria-label={`Unidad de medida ${grupo.um}`}>
+                <h2 className="mb-2 flex items-baseline justify-between text-xs font-bold uppercase tracking-wider text-zinc-500">
+                  <span>{grupo.um}</span>
+                  <span className="font-mono">{grupo.lineas.length}</span>
+                </h2>
+                <ul className="divide-y divide-zinc-100 rounded-xl border border-zinc-200 bg-white">
+                  {grupo.lineas.map((linea) => {
+                    const indice = linea.indice
+                    const estado = estadoDeLinea(linea)
+                    const diferencia = diferenciaDeLinea(linea)
+                    return (
+                      <li
+                        key={`${linea.referencia}-${indice}`}
+                        id={`linea-${indice}`}
+                        className={`p-4 ${resaltada === indice ? 'bg-slate-50 ring-2 ring-inset ring-slate-900/50' : ''}`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="font-mono text-sm font-bold text-slate-900">{linea.referencia}</p>
+                            <p className="mt-0.5 text-[15px] leading-snug text-zinc-800">{linea.descripcion}</p>
+                          </div>
+                          {linea.reversion && estado !== 'completo' ? (
+                            <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-900">
+                              Reversión
+                            </span>
+                          ) : (
+                            <InsigniaEstado estado={estado} />
+                          )}
+                        </div>
 
-                  <div className="mt-3 flex items-end justify-between gap-3 border-t border-zinc-100 pt-3">
-                    <div className="text-sm">
-                      <p>
-                        <span className="text-zinc-500">Esperado </span>
-                        <span className="font-mono text-base font-bold">{linea.cantidadEsperada}</span>
-                      </p>
-                      {linea.peso !== '' && <p className="mt-0.5 text-zinc-500">Peso {linea.peso}</p>}
-                      {estado === 'diferencia' && (
-                        <p className="mt-1 font-bold text-red-700">
-                          {diferencia > 0 ? `Faltan ${diferencia}` : `Sobran ${-diferencia}`}
-                        </p>
-                      )}
-                      {/* La reversión se puede marcar aunque no se haya contado
-                          nada: es la reversión total de la línea. */}
-                      {diferencia > 0 && (
-                        <label className="mt-1 flex min-h-11 items-center gap-2 text-sm font-medium text-amber-900">
-                          <input
-                            type="checkbox"
-                            checked={linea.reversion}
-                            onChange={(evento) => props.onMarcarReversion(indice, evento.target.checked)}
-                            className="size-5 accent-amber-600"
+                        <div className="mt-3 flex items-end justify-between gap-3 border-t border-zinc-100 pt-3">
+                          <div className="text-sm">
+                            <p>
+                              <span className="text-zinc-500">Esperado </span>
+                              <span className="font-mono text-base font-bold">{linea.cantidadEsperada}</span>
+                            </p>
+                            {linea.peso !== '' && <p className="mt-0.5 text-zinc-500">Peso {linea.peso}</p>}
+                            {estado === 'diferencia' && (
+                              <p className="mt-1 font-bold text-red-700">
+                                {diferencia > 0 ? `Faltan ${diferencia}` : `Sobran ${-diferencia}`}
+                              </p>
+                            )}
+                            {/* La reversión se puede marcar aunque no se haya contado
+                                nada: es la reversión total de la línea. */}
+                            {diferencia > 0 && (
+                              <label className="mt-1 flex min-h-11 items-center gap-2 text-sm font-medium text-amber-900">
+                                <input
+                                  type="checkbox"
+                                  checked={linea.reversion}
+                                  onChange={(evento) => props.onMarcarReversion(indice, evento.target.checked)}
+                                  className="size-5 accent-amber-600"
+                                />
+                                {linea.cantidadVerificada === 0 ? 'Reversión total' : 'El faltante es reversión'}
+                              </label>
+                            )}
+                          </div>
+                          <EntradaCantidad
+                            valor={linea.cantidadVerificada}
+                            onCambiar={(cantidad) => props.onCambiarCantidad(indice, cantidad)}
                           />
-                          {linea.cantidadVerificada === 0 ? 'Reversión total' : 'El faltante es reversión'}
-                        </label>
-                      )}
-                    </div>
-                    <EntradaCantidad
-                      valor={linea.cantidadVerificada}
-                      onCambiar={(cantidad) => props.onCambiarCantidad(indice, cantidad)}
-                    />
-                  </div>
-                </li>
-              )
-            })}
-          </ul>
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </section>
+            ))}
+          </div>
         )}
       </section>
 

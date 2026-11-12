@@ -1,12 +1,29 @@
 // Lector de código de barras con la cámara del celular (RF-05).
-// La librería de lectura (@zxing/browser) se carga solo al abrir el
-// escáner, para no engordar el paquete inicial de la app.
+// Usa el mismo lector que vox-inventory: ZXing (@zxing/library) leyendo en
+// continuo cada 200 ms y pidiendo la cámara a 1280x720, que es mucho más
+// ágil que dejar que el navegador entregue la resolución máxima.
+// La librería se carga solo al abrir el escáner, para no engordar el
+// paquete inicial de la app.
 import { useEffect, useRef, useState } from 'react'
-import type { IScannerControls } from '@zxing/browser'
 
 interface Props {
   onLeer: (codigo: string) => void
   onCerrar: () => void
+}
+
+/** Texto de error de cámara según el motivo, igual que en vox-inventory. */
+function mensajeCamara(error: unknown): string {
+  const nombre = error instanceof Error ? error.name : ''
+  if (nombre === 'NotAllowedError' || nombre === 'SecurityError') {
+    return 'El navegador bloqueó la cámara. Habilítala en los permisos o escribe el código en el buscador.'
+  }
+  if (nombre === 'NotFoundError' || nombre === 'OverconstrainedError') {
+    return 'No se encontró una cámara. Escribe el código en el buscador.'
+  }
+  if (nombre === 'NotReadableError') {
+    return 'La cámara está ocupada por otra aplicación. Ciérrala o escribe el código en el buscador.'
+  }
+  return 'No se pudo abrir la cámara. Escribe el código en el buscador.'
 }
 
 export default function Escaner({ onLeer, onCerrar }: Props) {
@@ -22,30 +39,83 @@ export default function Escaner({ onLeer, onCerrar }: Props) {
 
   useEffect(() => {
     let cerrado = false
-    let controles: IScannerControls | undefined
+    let lector: { reset: () => void } | null = null
+    let stream: MediaStream | null = null
+
+    function detener() {
+      if (lector !== null) {
+        try {
+          lector.reset()
+        } catch {
+          // El lector pudo haberse detenido ya; no hay nada que hacer.
+        }
+        lector = null
+      }
+      if (stream !== null) {
+        try {
+          stream.getTracks().forEach((pista) => pista.stop())
+        } catch {
+          // Las pistas pudieron cerrarse solas al apagar la cámara.
+        }
+        stream = null
+      }
+      const video = videoRef.current
+      if (video !== null) {
+        try {
+          video.pause()
+        } catch {
+          // El video pudo no haber empezado a reproducirse.
+        }
+        video.srcObject = null
+      }
+    }
 
     void (async () => {
       try {
-        const { BrowserMultiFormatReader } = await import('@zxing/browser')
+        if (!window.isSecureContext) {
+          setFallo('La cámara necesita https. Escribe el código en el buscador.')
+          setAbriendo(false)
+          return
+        }
+        if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
+          setFallo('Este navegador no da acceso a la cámara. Escribe el código en el buscador.')
+          setAbriendo(false)
+          return
+        }
+
+        const { BrowserMultiFormatReader } = await import('@zxing/library')
         const video = videoRef.current
         if (cerrado || video === null) return
-        const lector = new BrowserMultiFormatReader()
-        // Cámara trasera del celular, leyendo en continuo hasta lograr un código.
-        controles = await lector.decodeFromConstraints(
-          { video: { facingMode: 'environment' } },
-          video,
-          (resultado, _error, controlesLectura) => {
-            if (cerrado || resultado === undefined) return
-            cerrado = true
-            controlesLectura.stop()
-            alLeerRef.current(resultado.getText())
+
+        // 200 ms entre intentos de lectura: la misma agilidad de vox-inventory.
+        const nuevoLector = new BrowserMultiFormatReader(undefined, 200)
+        lector = nuevoLector
+
+        const nuevoStream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: {
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
           },
-        )
-      } catch {
-        if (!cerrado) {
-          // La cámara exige una conexión segura (https) y permiso del usuario.
-          setFallo('No se pudo abrir la cámara. Comprueba el permiso y que la app esté servida con https.')
+        })
+        if (cerrado) {
+          nuevoStream.getTracks().forEach((pista) => pista.stop())
+          return
         }
+        stream = nuevoStream
+
+        await nuevoLector.decodeFromStream(nuevoStream, video, (resultado) => {
+          if (cerrado || resultado === undefined) return
+          cerrado = true
+          const codigo = resultado.getText()
+          detener()
+          alLeerRef.current(codigo)
+        })
+      } catch (excepcion) {
+        if (cerrado) return
+        detener()
+        setFallo(mensajeCamara(excepcion))
       } finally {
         if (!cerrado) setAbriendo(false)
       }
@@ -53,7 +123,7 @@ export default function Escaner({ onLeer, onCerrar }: Props) {
 
     return () => {
       cerrado = true
-      controles?.stop()
+      detener()
     }
   }, [])
 

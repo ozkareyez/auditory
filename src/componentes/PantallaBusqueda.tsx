@@ -18,9 +18,6 @@ interface Props {
   onCambiarArchivo: () => void
 }
 
-/** Límite para listar los despachos como botones; con más, solo búsqueda. */
-const LIMITE_LISTADO = 20
-
 export default function PantallaBusqueda(props: Props) {
   const [consulta, setConsulta] = useState('')
   const [noEncontrado, setNoEncontrado] = useState(false)
@@ -45,22 +42,29 @@ export default function PantallaBusqueda(props: Props) {
         }}
       >
         <label htmlFor="consulta-plc" className="block text-sm font-medium text-zinc-700">
-          Número de PLC
+          PLC del despacho
         </label>
-        <input
+        <select
           id="consulta-plc"
           value={consulta}
           onChange={(evento) => {
             setConsulta(evento.target.value)
             setNoEncontrado(false)
           }}
-          placeholder="Ej.: PLC-00009501"
-          autoComplete="off"
           autoFocus
           className="mt-1.5 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-3.5 font-mono text-base
-            placeholder:font-sans focus-visible:outline-2 focus-visible:outline-slate-900"
-        />
-        <Boton type="submit" className="mt-3 w-full">
+            focus-visible:outline-2 focus-visible:outline-slate-900"
+        >
+          <option value="">Selecciona un PLC…</option>
+          {props.despachos.map((despacho) => (
+            <option key={despacho.plc} value={despacho.plc}>
+              {despacho.plc}
+              {despacho.ruta !== '' ? ` · ${despacho.ruta}` : ''}
+              {props.auditadas.has(clavePlc(despacho.plc)) ? ' · auditada' : ''}
+            </option>
+          ))}
+        </select>
+        <Boton type="submit" className="mt-3 w-full" disabled={consulta === ''}>
           Buscar
         </Boton>
       </form>
@@ -74,45 +78,6 @@ export default function PantallaBusqueda(props: Props) {
           </Aviso>
         )}
       </p>
-
-      {props.despachos.length > 0 && props.despachos.length <= LIMITE_LISTADO && (
-        <section className="mt-7">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
-            Despachos del archivo
-          </h2>
-          <ul className="mt-2 divide-y divide-zinc-100 rounded-xl border border-zinc-200 bg-white">
-            {props.despachos.map((despacho) => (
-              <li key={despacho.plc}>
-                <button
-                  type="button"
-                  onClick={() => buscar(despacho.plc)}
-                  className="flex min-h-14 w-full items-center gap-3 px-4 text-left
-                    focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
-                >
-                  <span className="font-mono font-bold">{despacho.plc}</span>
-                  {props.auditadas.has(clavePlc(despacho.plc)) && (
-                    <span className="shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-bold text-green-900">
-                      Auditada
-                    </span>
-                  )}
-                  {despacho.ruta !== '' && (
-                    <span className="truncate text-sm text-zinc-500">{despacho.ruta}</span>
-                  )}
-                  <span className="ml-auto shrink-0 font-mono text-sm text-zinc-500">
-                    {despacho.lineas.length} líneas
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {props.despachos.length > LIMITE_LISTADO && (
-        <p className="mt-6 text-sm text-zinc-600">
-          El archivo trae {props.despachos.length} despachos. Escribe el número de PLC para empezar.
-        </p>
-      )}
 
       {/* Informe de cierre: se habilita en cuanto hay auditorías grabadas. */}
       {props.terminadas > 0 && (

@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import type { Despacho, LineaAuditoria } from '../tipos'
-import { calcularResumen, crearAuditoria, diferenciaDeLinea, estadoDeLinea } from './auditoria'
+import {
+  agruparPorUm,
+  calcularResumen,
+  crearAuditoria,
+  diferenciaDeLinea,
+  estadoDeLinea,
+} from './auditoria'
 
 /** Línea de auditoria de prueba con las cantidades indicadas. */
 function linea(verificada: number, esperada: number): LineaAuditoria {
@@ -32,6 +38,35 @@ describe('crearAuditoria', () => {
     expect(lineas).toHaveLength(2)
     expect(lineas.every((unaLinea) => unaLinea.cantidadVerificada === 0)).toBe(true)
     expect(lineas.every((unaLinea) => unaLinea.reversion === false)).toBe(true)
+  })
+
+  it('consolida la mercancía que repite la misma referencia', () => {
+    const despacho: Despacho = {
+      plc: 'PLC90215',
+      ruta: 'Ruta Norte',
+      placa: 'ABC-123',
+      lineas: [
+        { referencia: '100201', descripcion: 'A', cantidadEsperada: 10, factura: 'FE-1', um: 'UND', peso: '1', codigoBarras: '' },
+        { referencia: '100201', descripcion: 'A', cantidadEsperada: 5, factura: 'FE-2', um: 'UND', peso: '1', codigoBarras: '' },
+      ],
+    }
+    const lineas = crearAuditoria(despacho)
+    expect(lineas).toHaveLength(1)
+    expect(lineas[0].cantidadEsperada).toBe(15)
+    expect(lineas[0].cantidadVerificada).toBe(0)
+  })
+})
+
+describe('agruparPorUm', () => {
+  it('separa las líneas por UM y ordena grupos y productos alfabéticamente', () => {
+    const grupos = agruparPorUm([
+      { ...linea(0, 1), referencia: '3', descripcion: 'Zeta', um: 'UND' },
+      { ...linea(0, 1), referencia: '1', descripcion: 'Alfa', um: 'CJA' },
+      { ...linea(0, 1), referencia: '2', descripcion: 'Beta', um: 'UND' },
+      { ...linea(0, 1), referencia: '4', descripcion: 'Alfa', um: 'BTO' },
+    ])
+    expect(grupos.map((grupo) => grupo.um)).toEqual(['BTO', 'CJA', 'UND'])
+    expect(grupos[2].lineas.map((unaLinea) => unaLinea.descripcion)).toEqual(['Beta', 'Zeta'])
   })
 })
 

@@ -1,6 +1,6 @@
 // Aplicación de auditoría de despachos por PLC.
 // Flujo: cargar archivo (columnas detectadas solas) → buscar PLC → cotejar → auditar → resumen.
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import PantallaAuditoria from './componentes/PantallaAuditoria'
 import PantallaBusqueda from './componentes/PantallaBusqueda'
 import PantallaCarga from './componentes/PantallaCarga'
@@ -8,13 +8,23 @@ import PantallaConfirmacion from './componentes/PantallaConfirmacion'
 import PantallaMapeo from './componentes/PantallaMapeo'
 import PantallaResumen from './componentes/PantallaResumen'
 import { crearAuditoria } from './logica/auditoria'
-import { buscarPorPlc, clavePlc, construirDespachos } from './logica/despachos'
+import { buscarPorPlc, calcularTotales, clavePlc, construirDespachos } from './logica/despachos'
 import { descargarInforme } from './logica/informe'
 import type { AuditoriaTerminada } from './logica/informe'
 import { leerArchivo } from './logica/leerArchivo'
 import { camposFaltantes, guardarMapeo, mapeoInicial } from './logica/mapeoColumnas'
+import {
+  borrarArchivo,
+  borrarSesion,
+  cargarArchivo,
+  cargarSesion,
+  guardarArchivo,
+  guardarSesion,
+} from './logica/persistencia'
+import type { EnCursoGuardado } from './logica/persistencia'
 import type {
   Campo,
+  DatosCargados,
   Despacho,
   Hoja,
   LineaAuditoria,
@@ -23,31 +33,78 @@ import type {
 
 type Paso = 'carga' | 'mapeo' | 'busqueda' | 'confirmacion' | 'auditoria' | 'resumen'
 
-/** Archivo ya procesado, listo para buscar despachos. */
-interface DatosCargados {
-  despachos: Despacho[]
-  advertencias: string[]
-}
-
 export default function App() {
-  const [paso, setPaso] = useState<Paso>('carga')
+  // Lo guardado en el navegador se lee una sola vez al abrir la app.
+  const [archivoGuardado] = useState(cargarArchivo)
+  const [sesionGuardada] = useState(cargarSesion)
+  const despachoRestaurado = useMemo(
+    () =>
+      archivoGuardado !== null && sesionGuardada?.enCurso != null
+        ? (buscarPorPlc(archivoGuardado.datos.despachos, sesionGuardada.enCurso.plc) ?? null)
+        : null,
+    [archivoGuardado, sesionGuardada],
+  )
+
+  const [paso, setPaso] = useState<Paso>(() => {
+    if (despachoRestaurado !== null && sesionGuardada?.enCurso != null) {
+      return sesionGuardada.enCurso.paso
+    }
+    return archivoGuardado !== null ? 'busqueda' : 'carga'
+  })
   const [error, setError] = useState<string | null>(null)
   const [leyendo, setLeyendo] = useState(false)
 
   // Carga del archivo (RF-01 y RF-02).
-  const [nombreArchivo, setNombreArchivo] = useState('')
+  const [nombreArchivo, setNombreArchivo] = useState(archivoGuardado?.nombreArchivo ?? '')
   const [hojas, setHojas] = useState<Hoja[]>([])
   const [hoja, setHoja] = useState<Hoja | null>(null)
   const [mapeo, setMapeo] = useState<MapeoColumnas | null>(null)
-  const [datos, setDatos] = useState<DatosCargados | null>(null)
+  const [datos, setDatos] = useState<DatosCargados | null>(archivoGuardado?.datos ?? null)
 
-  // Auditoría en curso (se conserva en memoria durante la sesión).
-  const [despacho, setDespacho] = useState<Despacho | null>(null)
-  const [lineas, setLineas] = useState<LineaAuditoria[] | null>(null)
+  // Auditoría en curso (se conserva en memoria y en el navegador).
+  const [despacho, setDespacho] = useState<Despacho | null>(despachoRestaurado)
+  const [lineas, setLineas] = useState<LineaAuditoria[] | null>(
+    despachoRestaurado !== null ? (sesionGuardada?.enCurso?.lineas ?? null) : null,
+  )
   // PLCs que ya se auditaron con el archivo actual (clave normalizada).
-  const [auditadas, setAuditadas] = useState<Set<string>>(new Set())
+  const [auditadas, setAuditadas] = useState<Set<string>>(
+    () => new Set(sesionGuardada?.auditadas ?? []),
+  )
   // Auditorías terminadas de la sesión, para el informe de cierre.
-  const [terminadas, setTerminadas] = useState<AuditoriaTerminada[]>([])
+  const [terminadas, setTerminadas] = useState<AuditoriaTerminada[]>(() =>
+    (sesionGuardada?.terminadas ?? []).map(({ fecha, ...resto }) => ({
+      ...resto,
+      fecha: new Date(fecha),
+    })),
+  )
+
+  // El archivo cargado se guarda aparte porque es grande y casi no cambia.
+  useEffect(() => {
+    if (datos === null) {
+      borrarArchivo()
+      return
+    }
+    guardarArchivo(nombreArchivo, datos)
+  }, [datos, nombreArchivo])
+
+  // La sesión (avance, terminadas y auditoría en curso) se guarda al instante
+  // para que un cierre o recarga no pierda el último conteo.
+  useEffect(() => {
+    const enCurso: EnCursoGuardado | null =
+      despacho !== null && (paso === 'confirmacion' || paso === 'auditoria' || paso === 'resumen')
+        ? { plc: despacho.plc, paso, lineas }
+        : null
+    guardarSesion([...auditadas], terminadas, enCurso)
+  }, [auditadas, terminadas, despacho, lineas, paso])
+
+  /** Borra la sesión anterior: marcas, informe y auditoría en curso. */
+  function reiniciarSesion() {
+    borrarSesion()
+    setAuditadas(new Set())
+    setTerminadas([])
+    setDespacho(null)
+    setLineas(null)
+  }
 
   async function alElegirArchivo(archivoElegido: File) {
     setError(null)
@@ -75,8 +132,7 @@ export default function App() {
         setError(null)
         setDatos({ despachos: resultado.despachos, advertencias: resultado.advertencias })
         // Las marcas de "auditada" y el informe eran del archivo anterior.
-        setAuditadas(new Set())
-        setTerminadas([])
+        reiniciarSesion()
         setPaso('busqueda')
         return
       }
@@ -127,8 +183,7 @@ export default function App() {
     setError(null)
     setDatos({ despachos: resultado.despachos, advertencias: resultado.advertencias })
     // Las marcas de "auditada" y el informe eran del archivo anterior.
-    setAuditadas(new Set())
-    setTerminadas([])
+    reiniciarSesion()
     setPaso('busqueda')
   }
 
@@ -186,6 +241,7 @@ export default function App() {
         ruta: despacho.ruta,
         placa: despacho.placa,
         fecha: new Date(),
+        facturas: calcularTotales(despacho).facturas,
         lineas: lineas.map((linea) => ({ ...linea })),
       }
       // Si se corrigió una auditoría ya grabada, se reemplaza (sin duplicar).

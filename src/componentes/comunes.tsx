@@ -1,7 +1,7 @@
 // Elementos compartidos entre pantallas.
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
 import type { Despacho, EstadoLinea } from '../tipos'
-import { calcularTotales } from '../logica/despachos'
+import { calcularTotales, consolidarLineas } from '../logica/despachos'
 import { formatearNumero } from '../logica/numeros'
 
 type VarianteBoton = 'primario' | 'secundario' | 'exito'
@@ -79,15 +79,16 @@ export function InsigniaEstado({ estado }: { estado: EstadoLinea }) {
 }
 
 /**
- * Cifras de control del documento (facturas, líneas, unidades y peso) para
- * cotejar el archivo cargado contra el PLC impreso. Va sobre el encabezado
- * oscuro de las pantallas.
+ * Cifras de control del documento (facturas, referencias consolidadas,
+ * unidades y peso) para cotejar el archivo cargado contra el PLC impreso.
+ * Va sobre el encabezado oscuro de las pantallas.
  */
 export function TotalesDocumento({ despacho }: { despacho: Despacho }) {
   const totales = calcularTotales(despacho)
+  const referencias = consolidarLineas(despacho.lineas).length
   const tiles: { valor: string; etiqueta: string }[] = []
   if (totales.facturas !== null) tiles.push({ valor: String(totales.facturas), etiqueta: 'facturas' })
-  tiles.push({ valor: String(despacho.lineas.length), etiqueta: 'líneas' })
+  tiles.push({ valor: String(referencias), etiqueta: 'referencias' })
   tiles.push({ valor: String(totales.unidades), etiqueta: 'unidades' })
   if (totales.peso !== null) tiles.push({ valor: formatearNumero(totales.peso), etiqueta: 'kg' })
   const clasesColumnas = { 2: 'grid-cols-2', 3: 'grid-cols-3', 4: 'grid-cols-4' }[tiles.length] ?? 'grid-cols-3'

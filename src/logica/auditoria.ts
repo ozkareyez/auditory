@@ -1,8 +1,55 @@
 import type { Despacho, EstadoLinea, LineaAuditoria, ResumenAuditoria, Sobrante } from '../tipos'
+import { consolidarLineas } from './despachos'
+import { normalizar } from './normalizar'
 
-/** Crea las líneas de auditoría de un despacho, con las cantidades verificadas en 0. */
+/**
+ * Crea las líneas de auditoría de un despacho, con las cantidades verificadas
+ * en 0. La mercancía se consolida por referencia: varias filas del mismo
+ * producto se suman en una sola línea.
+ */
 export function crearAuditoria(despacho: Despacho): LineaAuditoria[] {
-  return despacho.lineas.map((linea) => ({ ...linea, cantidadVerificada: 0, reversion: false }))
+  return consolidarLineas(despacho.lineas).map((linea) => ({
+    ...linea,
+    cantidadVerificada: 0,
+    reversion: false,
+  }))
+}
+
+/** Líneas de un mismo tipo de unidad de medida (bultos, cajas, pacas…). */
+export interface GrupoUm<T> {
+  um: string
+  lineas: T[]
+}
+
+function compararTexto(a: string, b: string): number {
+  return a.localeCompare(b, 'es', { sensitivity: 'base' })
+}
+
+function compararLineas<T extends { descripcion: string; referencia: string }>(a: T, b: T): number {
+  const porDescripcion = compararTexto(a.descripcion, b.descripcion)
+  if (porDescripcion !== 0) return porDescripcion
+  return a.referencia.localeCompare(b.referencia, 'es', { numeric: true, sensitivity: 'base' })
+}
+
+/**
+ * Organiza las líneas por unidad de medida: cada UM (BTO, CJA, PAQ, PAC…)
+ * queda en su propio grupo, los grupos van en orden alfabético y dentro de
+ * cada uno las líneas también se ordenan alfabéticamente por descripción.
+ */
+export function agruparPorUm<T extends { um: string; descripcion: string; referencia: string }>(
+  lineas: T[],
+): GrupoUm<T>[] {
+  const grupos = new Map<string, GrupoUm<T>>()
+  for (const linea of lineas) {
+    const um = linea.um.trim() === '' ? 'Sin UM' : linea.um.trim()
+    const clave = normalizar(um)
+    const grupo = grupos.get(clave)
+    if (grupo === undefined) grupos.set(clave, { um, lineas: [linea] })
+    else grupo.lineas.push(linea)
+  }
+  return [...grupos.values()]
+    .sort((a, b) => compararTexto(a.um, b.um))
+    .map((grupo) => ({ um: grupo.um, lineas: grupo.lineas.sort(compararLineas) }))
 }
 
 /**

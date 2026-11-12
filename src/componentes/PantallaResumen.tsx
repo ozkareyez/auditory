@@ -1,6 +1,6 @@
 // Pantalla de resumen: completo / faltantes / reversión / excedentes (RF-07).
 import type { Despacho, LineaAuditoria } from '../tipos'
-import { calcularResumen, diferenciaDeLinea } from '../logica/auditoria'
+import { agruparPorUm, calcularResumen, diferenciaDeLinea } from '../logica/auditoria'
 import { calcularTotales } from '../logica/despachos'
 import { formatearNumero } from '../logica/numeros'
 import { Boton } from './comunes'
@@ -22,7 +22,7 @@ export default function PantallaResumen({ despacho, lineas, onRegresar, onNueva 
   const totales = calcularTotales(despacho)
   const partesDocumento = [
     totales.facturas !== null ? `${totales.facturas} facturas` : null,
-    `${resumen.totalLineas} líneas`,
+    `${resumen.totalLineas} referencias`,
     `${totales.unidades} unidades`,
     totales.peso !== null ? `${formatearNumero(totales.peso)} kg` : null,
   ].filter((parte) => parte !== null)
@@ -70,22 +70,11 @@ export default function PantallaResumen({ despacho, lineas, onRegresar, onNueva 
       {resumen.faltantes.length > 0 && (
         <section className="mt-6">
           <h2 className={`${LEYENDA} text-red-700`}>Faltantes · {resumen.faltantes.length}</h2>
-          <ul className={HOJA}>
-            {resumen.faltantes.map((linea, indice) => (
-              <li key={`${linea.referencia}-${indice}`} className="p-4">
-                <div className="flex items-baseline justify-between gap-3">
-                  <p className="font-mono text-sm font-bold">{linea.referencia}</p>
-                  <p className="font-mono text-sm font-bold text-red-700">
-                    Faltan {diferenciaDeLinea(linea)}
-                  </p>
-                </div>
-                <p className="mt-0.5 text-sm text-zinc-700">{linea.descripcion}</p>
-                <p className="mt-1 text-xs text-zinc-500">
-                  Esperado {linea.cantidadEsperada} · verificado {linea.cantidadVerificada}
-                </p>
-              </li>
-            ))}
-          </ul>
+          <ListaPorUm
+            lineas={resumen.faltantes}
+            color="text-red-700"
+            texto={(linea) => `Faltan ${diferenciaDeLinea(linea)}`}
+          />
         </section>
       )}
 
@@ -95,46 +84,26 @@ export default function PantallaResumen({ despacho, lineas, onRegresar, onNueva 
           <p className="mt-1 text-xs text-zinc-500">
             Faltantes que el auditor marcó como reversión; no cuentan como error de despacho.
           </p>
-          <ul className={HOJA}>
-            {resumen.reversiones.map((linea, indice) => (
-              <li key={`${linea.referencia}-${indice}`} className="p-4">
-                <div className="flex items-baseline justify-between gap-3">
-                  <p className="font-mono text-sm font-bold">{linea.referencia}</p>
-                  <p className="font-mono text-sm font-bold text-amber-800">
-                    {linea.cantidadVerificada === 0
-                      ? `Reversión total de ${diferenciaDeLinea(linea)}`
-                      : `Reversión de ${diferenciaDeLinea(linea)}`}
-                  </p>
-                </div>
-                <p className="mt-0.5 text-sm text-zinc-700">{linea.descripcion}</p>
-                <p className="mt-1 text-xs text-zinc-500">
-                  Esperado {linea.cantidadEsperada} · verificado {linea.cantidadVerificada}
-                </p>
-              </li>
-            ))}
-          </ul>
+          <ListaPorUm
+            lineas={resumen.reversiones}
+            color="text-amber-800"
+            texto={(linea) =>
+              linea.cantidadVerificada === 0
+                ? `Reversión total de ${diferenciaDeLinea(linea)}`
+                : `Reversión de ${diferenciaDeLinea(linea)}`
+            }
+          />
         </section>
       )}
 
       {resumen.excedentes.length > 0 && (
         <section className="mt-6">
           <h2 className={`${LEYENDA} text-amber-700`}>Con excedente · {resumen.excedentes.length}</h2>
-          <ul className={HOJA}>
-            {resumen.excedentes.map((linea, indice) => (
-              <li key={`${linea.referencia}-${indice}`} className="p-4">
-                <div className="flex items-baseline justify-between gap-3">
-                  <p className="font-mono text-sm font-bold">{linea.referencia}</p>
-                  <p className="font-mono text-sm font-bold text-amber-800">
-                    Sobran {-diferenciaDeLinea(linea)}
-                  </p>
-                </div>
-                <p className="mt-0.5 text-sm text-zinc-700">{linea.descripcion}</p>
-                <p className="mt-1 text-xs text-zinc-500">
-                  Esperado {linea.cantidadEsperada} · verificado {linea.cantidadVerificada}
-                </p>
-              </li>
-            ))}
-          </ul>
+          <ListaPorUm
+            lineas={resumen.excedentes}
+            color="text-amber-800"
+            texto={(linea) => `Sobran ${-diferenciaDeLinea(linea)}`}
+          />
         </section>
       )}
 
@@ -167,5 +136,46 @@ export default function PantallaResumen({ despacho, lineas, onRegresar, onNueva 
         </Boton>
       </div>
     </main>
+  )
+}
+
+/**
+ * Lista de líneas separada por unidad de medida (bultos, cajas, paquetes,
+ * pacas…), con los grupos y los productos en orden alfabético.
+ */
+function ListaPorUm({
+  lineas,
+  color,
+  texto,
+}: {
+  lineas: LineaAuditoria[]
+  color: string
+  texto: (linea: LineaAuditoria) => string
+}) {
+  return (
+    <div className="mt-3 space-y-4">
+      {agruparPorUm(lineas).map((grupo) => (
+        <section key={grupo.um}>
+          <h3 className="mb-1.5 flex items-baseline justify-between text-xs font-bold uppercase tracking-wider text-zinc-500">
+            <span>{grupo.um}</span>
+            <span className="font-mono">{grupo.lineas.length}</span>
+          </h3>
+          <ul className={HOJA}>
+            {grupo.lineas.map((linea, indice) => (
+              <li key={`${linea.referencia}-${indice}`} className="p-4">
+                <div className="flex items-baseline justify-between gap-3">
+                  <p className="font-mono text-sm font-bold">{linea.referencia}</p>
+                  <p className={`font-mono text-sm font-bold ${color}`}>{texto(linea)}</p>
+                </div>
+                <p className="mt-0.5 text-sm text-zinc-700">{linea.descripcion}</p>
+                <p className="mt-1 text-xs text-zinc-500">
+                  Esperado {linea.cantidadEsperada} · verificado {linea.cantidadVerificada}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+    </div>
   )
 }

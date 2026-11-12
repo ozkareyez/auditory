@@ -1,5 +1,6 @@
-import type { Despacho, MapeoColumnas } from '../tipos'
+import type { Despacho, LineaDespacho, MapeoColumnas } from '../tipos'
 import { normalizar } from './normalizar'
+import { formatearNumero } from './numeros'
 
 export interface ResultadoConstruccion {
   /** Despachos agrupados por PLC, en el orden en que aparecen en el archivo. */
@@ -80,6 +81,49 @@ export function construirDespachos(
   }
 
   return { despachos: [...porPlc.values()], filasIgnoradas, advertencias }
+}
+
+interface AcumuladoReferencia {
+  linea: LineaDespacho
+  pesoTotal: number
+  hayPeso: boolean
+  pesoTexto: string
+}
+
+/**
+ * Consolida la mercancía de un despacho por referencia y unidad de medida:
+ * las filas que repiten la misma referencia (por ejemplo, el mismo producto
+ * repartido en varias facturas) se suman en una sola línea. La factura deja
+ * de ser un dato por línea; del documento solo se conserva el número de
+ * facturas distintas.
+ */
+export function consolidarLineas(lineas: LineaDespacho[]): LineaDespacho[] {
+  const grupos = new Map<string, AcumuladoReferencia>()
+  for (const linea of lineas) {
+    // La UM también separa: una misma referencia en otra unidad no se mezcla.
+    const clave = `${normalizar(linea.referencia)}|${normalizar(linea.um)}`
+    let acumulado = grupos.get(clave)
+    if (acumulado === undefined) {
+      acumulado = {
+        linea: { ...linea, factura: '' },
+        pesoTotal: 0,
+        hayPeso: false,
+        pesoTexto: linea.peso.trim(),
+      }
+      grupos.set(clave, acumulado)
+    } else {
+      acumulado.linea.cantidadEsperada += linea.cantidadEsperada
+    }
+    const peso = parsearPeso(linea.peso)
+    if (peso !== null) {
+      acumulado.pesoTotal += peso
+      acumulado.hayPeso = true
+    }
+  }
+  return [...grupos.values()].map(({ linea, pesoTotal, hayPeso, pesoTexto }) => ({
+    ...linea,
+    peso: hayPeso ? formatearNumero(pesoTotal) : pesoTexto,
+  }))
 }
 
 /**

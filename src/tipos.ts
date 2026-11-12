@@ -13,6 +13,12 @@ export interface ArchivoDespachos {
   hojas: Hoja[]
 }
 
+/** Archivo ya procesado, listo para buscar despachos. */
+export interface DatosCargados {
+  despachos: Despacho[]
+  advertencias: string[]
+}
+
 /** Campos que la app sabe interpretar en el archivo (RF-02). */
 export type Campo =
   | 'plc'

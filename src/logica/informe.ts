@@ -10,6 +10,9 @@ export interface AuditoriaTerminada {
   ruta: string
   placa: string
   fecha: Date
+  /** Facturas distintas que componen el despacho; null si el archivo no las trae. */
+  facturas: number | null
+  /** Líneas ya consolidadas por referencia. */
   lineas: LineaAuditoria[]
 }
 
@@ -41,8 +44,9 @@ export function tablasInforme(auditorias: AuditoriaTerminada[]): {
       'Fecha y hora',
       'Ruta',
       'Placa',
+      'Facturas',
+      'Referencias',
       'Estado',
-      'Líneas',
       'Completas',
       'Con faltante',
       'Con excedente',
@@ -61,7 +65,6 @@ export function tablasInforme(auditorias: AuditoriaTerminada[]): {
       'Referencia',
       'Descripción',
       'UM',
-      'Factura',
       'Peso',
       'Esperado',
       'Despachado',
@@ -87,8 +90,9 @@ export function tablasInforme(auditorias: AuditoriaTerminada[]): {
       fechaLegible(auditoria.fecha),
       auditoria.ruta,
       auditoria.placa,
-      resultado.estado === 'completo' ? 'Completo' : 'Con diferencias',
+      auditoria.facturas ?? '',
       resultado.totalLineas,
+      resultado.estado === 'completo' ? 'Completo' : 'Con diferencias',
       resultado.completas,
       resultado.faltantes.length,
       resultado.excedentes.length,
@@ -98,8 +102,8 @@ export function tablasInforme(auditorias: AuditoriaTerminada[]): {
       resultado.reversiones.length > 0 ? 'Sí' : 'No',
       unidadesReversion,
     ])
-    // El detalle lista todos los productos del despacho, con lo despachado
-    // y la reversión que se le hizo a cada referencia.
+    // El detalle lista los productos consolidados de cada despacho, con lo
+    // despachado y la reversión que se le hizo a cada referencia.
     for (const linea of auditoria.lineas) {
       const enReversion = linea.reversion ? Math.max(0, diferenciaDeLinea(linea)) : 0
       detalle.push([
@@ -109,7 +113,6 @@ export function tablasInforme(auditorias: AuditoriaTerminada[]): {
         linea.referencia,
         linea.descripcion,
         linea.um,
-        linea.factura,
         linea.peso,
         linea.cantidadEsperada,
         linea.cantidadVerificada,
@@ -129,15 +132,15 @@ export async function descargarInforme(auditorias: AuditoriaTerminada[]): Promis
   const libro = XLSX.utils.book_new()
   const hojaResumen = XLSX.utils.aoa_to_sheet(resumen)
   hojaResumen['!cols'] = [
-    { wch: 16 }, { wch: 17 }, { wch: 26 }, { wch: 11 }, { wch: 16 },
-    { wch: 7 }, { wch: 11 }, { wch: 13 }, { wch: 15 },
+    { wch: 16 }, { wch: 17 }, { wch: 26 }, { wch: 11 }, { wch: 10 },
+    { wch: 12 }, { wch: 16 }, { wch: 11 }, { wch: 13 }, { wch: 15 },
     { wch: 11 }, { wch: 11 }, { wch: 11 }, { wch: 13 }, { wch: 12 },
   ]
   XLSX.utils.book_append_sheet(libro, hojaResumen, 'Auditorías')
   const hojaDetalle = XLSX.utils.aoa_to_sheet(detalle)
   hojaDetalle['!cols'] = [
     { wch: 16 }, { wch: 17 }, { wch: 11 }, { wch: 11 }, { wch: 42 }, { wch: 6 },
-    { wch: 14 }, { wch: 8 }, { wch: 10 }, { wch: 11 }, { wch: 11 }, { wch: 13 }, { wch: 10 },
+    { wch: 8 }, { wch: 10 }, { wch: 11 }, { wch: 11 }, { wch: 13 }, { wch: 10 },
   ]
   XLSX.utils.book_append_sheet(libro, hojaDetalle, 'Productos')
   const datos = XLSX.write(libro, { bookType: 'xlsx', type: 'array' })

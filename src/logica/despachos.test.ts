@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import type { Despacho, Hoja } from '../tipos'
-import { buscarPorPlc, buscarPorRuta, calcularTotales, construirDespachos, parsearCantidad, parsearPeso } from './despachos'
+import type { Despacho, Hoja, LineaDespacho } from '../tipos'
+import {
+  buscarPorPlc,
+  buscarPorRuta,
+  calcularTotales,
+  consolidarLineas,
+  construirDespachos,
+  parsearCantidad,
+  parsearPeso,
+} from './despachos'
 import { detectarMapeo } from './mapeoColumnas'
 
 const ENCABEZADOS = [
@@ -57,6 +65,55 @@ describe('construirDespachos', () => {
     const { filasIgnoradas, advertencias } = construirDespachos(hojaDeEjemplo(), detectarMapeo(ENCABEZADOS))
     expect(filasIgnoradas).toBe(1)
     expect(advertencias.some((aviso) => aviso.includes('ignoradas'))).toBe(true)
+  })
+})
+
+describe('consolidarLineas', () => {
+  function linea(
+    referencia: string,
+    cantidad: number,
+    um: string,
+    factura: string,
+    peso = '',
+  ): LineaDespacho {
+    return {
+      referencia,
+      descripcion: `Producto ${referencia}`,
+      cantidadEsperada: cantidad,
+      factura,
+      um,
+      peso,
+      codigoBarras: '',
+    }
+  }
+
+  it('suma las filas de la misma referencia y unidad de medida', () => {
+    const consolidadas = consolidarLineas([
+      linea('152342', 1, 'CJA', 'FEM-1'),
+      linea('152342', 1, 'CJA', 'FEM-2'),
+      linea('156408', 1, 'PAC', 'FEM-3'),
+    ])
+    expect(consolidadas).toHaveLength(2)
+    expect(consolidadas[0].referencia).toBe('152342')
+    expect(consolidadas[0].cantidadEsperada).toBe(2)
+    expect(consolidadas[0].factura).toBe('') // la factura se resume aparte
+  })
+
+  it('separa la misma referencia cuando cambia la unidad de medida', () => {
+    const consolidadas = consolidarLineas([
+      linea('159979', 12, 'BOL', 'FEM-1'),
+      linea('159979', 6, 'UND', 'FEM-2'),
+    ])
+    expect(consolidadas).toHaveLength(2)
+  })
+
+  it('suma los pesos de las filas consolidadas', () => {
+    const consolidadas = consolidarLineas([
+      linea('159979', 12, 'BOL', 'FEM-1', '0,94'),
+      linea('159979', 6, 'BOL', 'FEM-2', '0,47'),
+    ])
+    expect(consolidadas).toHaveLength(1)
+    expect(consolidadas[0].peso).toBe('1.41')
   })
 })
 

@@ -4,6 +4,8 @@
 // Un PLC ya auditado con este archivo no se puede volver a auditar.
 import { useState } from 'react'
 import type { Despacho } from '../tipos'
+import { agruparPorUm } from '../logica/auditoria'
+import { consolidarLineas } from '../logica/despachos'
 import { Boton, TotalesDocumento } from './comunes'
 
 interface Props {
@@ -18,6 +20,9 @@ export default function PantallaConfirmacion({ despacho, auditada, onIniciar, on
   // El botón de iniciar se habilita cuando el auditor confirma que los
   // totales del archivo coinciden con los del PLC impreso.
   const [coincide, setCoincide] = useState(false)
+  // La mercancía se muestra consolidada por referencia y separada por UM.
+  const referencias = consolidarLineas(despacho.lineas)
+  const grupos = agruparPorUm(referencias)
 
   return (
     <div className="min-h-dvh pb-36">
@@ -43,28 +48,32 @@ export default function PantallaConfirmacion({ despacho, auditada, onIniciar, on
         </div>
       </header>
 
-      {/* Contenido del despacho, para verificar que todo quedó cargado. */}
+      {/* Contenido del despacho consolidado, para verificar que todo quedó cargado. */}
       <section className="mx-auto mt-5 max-w-md px-4" aria-label="Contenido del despacho">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
-          Contenido · {despacho.lineas.length} líneas
+          Contenido · {referencias.length} referencias
         </h2>
-        <ul className="mt-2 divide-y divide-zinc-100 rounded-xl border border-zinc-200 bg-white">
-          {despacho.lineas.map((linea, indice) => (
-            <li key={`${linea.referencia}-${indice}`} className="flex items-baseline gap-3 px-4 py-3">
-              <div className="min-w-0 flex-1">
-                <p className="font-mono text-sm font-bold text-slate-900">
-                  {linea.referencia}
-                  {linea.um !== '' && <span className="font-normal text-zinc-500"> · {linea.um}</span>}
-                </p>
-                <p className="mt-0.5 truncate text-sm text-zinc-700">{linea.descripcion}</p>
-                {linea.factura !== '' && (
-                  <p className="mt-0.5 font-mono text-xs text-zinc-500">{linea.factura}</p>
-                )}
-              </div>
-              <p className="shrink-0 font-mono text-lg font-bold">{linea.cantidadEsperada}</p>
-            </li>
+        <div className="mt-2 space-y-4">
+          {grupos.map((grupo) => (
+            <section key={grupo.um}>
+              <h3 className="mb-1.5 flex items-baseline justify-between text-xs font-bold uppercase tracking-wider text-zinc-500">
+                <span>{grupo.um}</span>
+                <span className="font-mono">{grupo.lineas.length}</span>
+              </h3>
+              <ul className="divide-y divide-zinc-100 rounded-xl border border-zinc-200 bg-white">
+                {grupo.lineas.map((linea, indice) => (
+                  <li key={`${linea.referencia}-${indice}`} className="flex items-baseline gap-3 px-4 py-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-mono text-sm font-bold text-slate-900">{linea.referencia}</p>
+                      <p className="mt-0.5 truncate text-sm text-zinc-700">{linea.descripcion}</p>
+                    </div>
+                    <p className="shrink-0 font-mono text-lg font-bold">{linea.cantidadEsperada}</p>
+                  </li>
+                ))}
+              </ul>
+            </section>
           ))}
-        </ul>
+        </div>
       </section>
 
       {/* Barra de acciones fija: cotejar y, si coincide, iniciar. */}
