@@ -257,7 +257,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-dvh bg-zinc-100 text-zinc-900 antialiased">
+    <div className="min-h-dvh bg-papel text-tinta antialiased">
       {paso === 'carga' && (
         <PantallaCarga onElegir={alElegirArchivo} error={error} cargando={leyendo} />
       )}

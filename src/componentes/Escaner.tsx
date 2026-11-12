@@ -132,7 +132,7 @@ export default function Escaner({ onLeer, onCerrar }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-slate-950"
+      className="fixed inset-0 z-50 bg-tinta"
       role="dialog"
       aria-modal="true"
       aria-label="Escanear código de barras"
@@ -141,23 +141,23 @@ export default function Escaner({ onLeer, onCerrar }: Props) {
 
       {/* Marco de guía: el resto de la pantalla se oscurece con una sombra. */}
       <div className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 px-10">
-        <div className="mx-auto aspect-[3/2] w-full max-w-[280px] rounded-2xl border-2 border-white/80 shadow-[0_0_0_9999px_rgba(2,6,23,0.45)]" />
+        <div className="mx-auto aspect-[3/2] w-full max-w-[280px] border-2 border-senal shadow-[0_0_0_9999px_rgba(21,26,23,0.6)]" />
       </div>
 
-      <div className="absolute inset-x-0 top-0 flex items-center justify-between bg-gradient-to-b from-slate-950/80 to-transparent px-4 pb-10 pt-4">
-        <p className="text-sm font-semibold text-white">Escanear producto</p>
+      <div className="absolute inset-x-0 top-0 flex items-center justify-between bg-gradient-to-b from-tinta/90 to-transparent px-4 pb-10 pt-4">
+        <p className="text-sm font-semibold text-papel">Escanear producto</p>
         <button
           type="button"
           onClick={onCerrar}
           aria-label="Cerrar el escáner"
-          className="flex size-12 items-center justify-center rounded-full bg-white/15 text-xl font-bold text-white backdrop-blur
-            focus-visible:outline-2 focus-visible:outline-white"
+          className="flex size-12 items-center justify-center rounded-sm border-2 border-papel/40 bg-papel/15 text-xl font-bold text-papel backdrop-blur
+            focus-visible:outline-2 focus-visible:outline-papel"
         >
           ✕
         </button>
       </div>
 
-      <p className="absolute inset-x-0 bottom-[calc(3rem+var(--area-segura-inferior))] px-6 text-center text-sm leading-snug text-slate-200">
+      <p className="absolute inset-x-0 bottom-[calc(3rem+var(--area-segura-inferior))] px-6 text-center text-sm leading-snug text-papel/80">
         {fallo ?? (abriendo ? 'Abriendo la cámara…' : 'Apunta al código de barras del producto')}
       </p>
     </div>

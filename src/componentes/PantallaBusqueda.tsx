@@ -28,20 +28,26 @@ export default function PantallaBusqueda(props: Props) {
   }
 
   return (
-    <main className="mx-auto max-w-md px-4 pb-12 pt-8">
-      <p className="text-xs text-zinc-500">
-        <span className="font-mono">{props.nombreArchivo}</span> · {props.despachos.length} despachos
+    <main className="mx-auto max-w-md px-4 pb-12 pt-6">
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="text-xs font-medium text-acero">Archivo cargado</p>
+        <p className="min-w-0 truncate font-mono text-xs text-acero">{props.nombreArchivo}</p>
+      </div>
+      <h1 className="mt-1 text-3xl font-black tracking-tight">Buscar despacho</h1>
+      <p className="mt-1 text-sm text-acero">
+        {props.despachos.length === 1
+          ? '1 despacho listo para auditar.'
+          : `${props.despachos.length} despachos listos para auditar.`}
       </p>
-      <h1 className="mt-1 text-2xl font-bold tracking-tight">Buscar despacho</h1>
 
       <form
-        className="mt-5"
+        className="mt-6 border-2 border-tinta bg-hoja p-4"
         onSubmit={(evento) => {
           evento.preventDefault()
           buscar(consulta)
         }}
       >
-        <label htmlFor="consulta-plc" className="block text-sm font-medium text-zinc-700">
+        <label htmlFor="consulta-plc" className="block text-sm font-semibold">
           PLC del despacho
         </label>
         <select
@@ -52,32 +58,35 @@ export default function PantallaBusqueda(props: Props) {
             setNoEncontrado(false)
           }}
           autoFocus
-          className="mt-1.5 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-3.5 font-mono text-base
-            focus-visible:outline-2 focus-visible:outline-slate-900"
+          className="mt-1.5 min-h-12 w-full rounded-sm border-2 border-linea bg-papel px-3 font-mono text-base
+            focus-visible:outline-2 focus-visible:outline-tinta"
         >
           <option value="">Selecciona un PLC…</option>
-          {props.despachos.map((despacho) => (
-            <option key={despacho.plc} value={despacho.plc}>
-              {despacho.plc}
-              {despacho.ruta !== '' ? ` · ${despacho.ruta}` : ''}
-              {props.auditadas.has(clavePlc(despacho.plc)) ? ' · auditada' : ''}
-            </option>
-          ))}
+          {props.despachos.map((despacho) => {
+            const auditada = props.auditadas.has(clavePlc(despacho.plc))
+            return (
+              <option key={despacho.plc} value={despacho.plc}>
+                {despacho.plc}
+                {despacho.ruta !== '' ? ` (${despacho.ruta})` : ''}
+                {auditada ? ' (auditada)' : ''}
+              </option>
+            )
+          })}
         </select>
-        <Boton type="submit" className="mt-3 w-full" disabled={consulta === ''}>
+        <Boton type="submit" variante="senal" className="mt-3 w-full" disabled={consulta === ''}>
           Buscar
         </Boton>
       </form>
 
       {/* Resultado de la búsqueda: mensaje claro cuando no hay coincidencias. */}
-      <p aria-live="polite" className="mt-3">
+      <div aria-live="polite" className="mt-3">
         {noEncontrado && (
           <Aviso tipo="error">
             No se encontró ningún despacho con el PLC «{consulta.trim()}». Revisa que esté escrito
             igual que en el archivo.
           </Aviso>
         )}
-      </p>
+      </div>
 
       {/* Informe de cierre: se habilita en cuanto hay auditorías grabadas. */}
       {props.terminadas > 0 && (
@@ -87,9 +96,9 @@ export default function PantallaBusqueda(props: Props) {
       )}
 
       {props.advertencias.length > 0 && (
-        <details className="mt-7 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-          <summary className="cursor-pointer font-semibold">
-            {props.advertencias.length} avisos del archivo
+        <details className="mt-7 border-l-4 border-l-senal bg-senal-claro p-3 text-sm text-tinta">
+          <summary className="-mx-3 -mt-3 cursor-pointer px-3 py-3 font-semibold">
+            {props.advertencias.length === 1 ? '1 aviso' : `${props.advertencias.length} avisos`} del archivo
           </summary>
           <ul className="mt-2 list-disc space-y-1 pl-5">
             {props.advertencias.map((aviso, indice) => (
@@ -102,8 +111,8 @@ export default function PantallaBusqueda(props: Props) {
       <button
         type="button"
         onClick={props.onCambiarArchivo}
-        className="mt-8 text-sm font-semibold text-slate-900 underline
-          focus-visible:outline-2 focus-visible:outline-slate-900"
+        className="mt-8 min-h-11 text-sm font-semibold text-tinta underline decoration-2 underline-offset-4
+          focus-visible:outline-2 focus-visible:outline-tinta"
       >
         Usar otro archivo
       </button>

@@ -12,9 +12,6 @@ interface Props {
   onNueva: () => void
 }
 
-const HOJA = 'mt-2 divide-y divide-zinc-100 rounded-xl border border-zinc-200 bg-white'
-const LEYENDA = 'text-xs font-bold uppercase tracking-wider'
-
 export default function PantallaResumen({ despacho, lineas, onRegresar, onNueva }: Props) {
   const resumen = calcularResumen(lineas)
   const completa = resumen.estado === 'completo'
@@ -26,53 +23,59 @@ export default function PantallaResumen({ despacho, lineas, onRegresar, onNueva 
     `${totales.unidades} unidades`,
     totales.peso !== null ? `${formatearNumero(totales.peso)} kg` : null,
   ].filter((parte) => parte !== null)
+  const ubicacion = [despacho.ruta, despacho.placa].filter((dato) => dato !== '')
 
   return (
-    <main className="mx-auto max-w-md px-4 pb-12 pt-8">
-      {/* Sello del resultado de la auditoría. */}
-      <section
-        aria-live="polite"
-        className={`rounded-xl border-l-4 p-5 ${
-          completa
-            ? 'border-l-green-600 bg-green-50 text-green-950'
-            : 'border-l-red-600 bg-red-50 text-red-950'
-        }`}
-      >
-        <p className="font-mono text-sm font-bold">{despacho.plc}</p>
-        <h1 className="mt-1 text-2xl font-extrabold leading-tight tracking-tight">
-          {completa ? 'Auditoría completa' : 'Auditoría con diferencias'}
-        </h1>
-        {(despacho.ruta !== '' || despacho.placa !== '') && (
-          <p className="mt-1 text-sm">
-            {[despacho.ruta, despacho.placa].filter((dato) => dato !== '').join(' · ')}
-          </p>
-        )}
+    <main className="mx-auto max-w-md px-4 pb-12 pt-6">
+      {/* Resultado sobrio, como un sello de inspección sin adornos. */}
+      <section aria-live="polite" className="border-2 border-tinta bg-hoja">
+        <div className={`h-2 ${completa ? 'bg-verde' : 'bg-rojo'}`} />
+        <div className="p-4">
+          <div className="flex items-baseline justify-between gap-3">
+            <p className="font-mono text-sm font-bold">{despacho.plc}</p>
+            <p className={`text-xs font-semibold ${completa ? 'text-verde' : 'text-rojo'}`}>
+              {completa ? 'Sin diferencias' : 'Con diferencias'}
+            </p>
+          </div>
+          <h1
+            className={`mt-1 text-3xl font-black leading-tight tracking-tight ${
+              completa ? 'text-verde' : 'text-rojo'
+            }`}
+          >
+            {completa ? 'Auditoría completa' : 'Auditoría con diferencias'}
+          </h1>
+          {ubicacion.length > 0 && (
+            <p className="mt-1 text-sm text-acero">{ubicacion.join(' / ')}</p>
+          )}
 
-        <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-          <div className="rounded-lg bg-white/70 p-2.5">
-            <p className="font-mono text-xl font-bold">{resumen.completas}</p>
-            <p className="mt-0.5 text-[11px] font-medium">líneas completas</p>
+          <div className="mt-4 grid grid-cols-3 divide-x divide-linea border-y border-linea text-center">
+            <div className="px-1 py-2.5">
+              <p className="text-xl font-black tabular-nums">{resumen.completas}</p>
+              <p className="mt-0.5 text-[11px] font-medium text-acero">completas</p>
+            </div>
+            <div className="px-1 py-2.5">
+              <p className="text-xl font-black tabular-nums">{resumen.faltantes.length}</p>
+              <p className="mt-0.5 text-[11px] font-medium text-acero">con faltante</p>
+            </div>
+            <div className="px-1 py-2.5">
+              <p className="text-xl font-black tabular-nums">{resumen.revisadas}</p>
+              <p className="mt-0.5 text-[11px] font-medium text-acero">
+                de {resumen.totalLineas} revisadas
+              </p>
+            </div>
           </div>
-          <div className="rounded-lg bg-white/70 p-2.5">
-            <p className="font-mono text-xl font-bold">{resumen.faltantes.length}</p>
-            <p className="mt-0.5 text-[11px] font-medium">con faltante</p>
-          </div>
-          <div className="rounded-lg bg-white/70 p-2.5">
-            <p className="font-mono text-xl font-bold">{resumen.revisadas}</p>
-            <p className="mt-0.5 text-[11px] font-medium">de {resumen.totalLineas} revisadas</p>
-          </div>
+
+          {/* Totales con los que se cotejó el documento cargado. */}
+          <p className="mt-3 text-xs text-acero">Documento: {partesDocumento.join(', ')}</p>
         </div>
-
-        {/* Totales con los que se cotejó el documento cargado. */}
-        <p className="mt-3 text-xs">Documento: {partesDocumento.join(' · ')}</p>
       </section>
 
       {resumen.faltantes.length > 0 && (
         <section className="mt-6">
-          <h2 className={`${LEYENDA} text-red-700`}>Faltantes · {resumen.faltantes.length}</h2>
+          <TituloLista color="bg-rojo" texto="Faltantes" total={resumen.faltantes.length} />
           <ListaPorUm
             lineas={resumen.faltantes}
-            color="text-red-700"
+            color="text-rojo"
             texto={(linea) => `Faltan ${diferenciaDeLinea(linea)}`}
           />
         </section>
@@ -80,13 +83,13 @@ export default function PantallaResumen({ despacho, lineas, onRegresar, onNueva 
 
       {resumen.reversiones.length > 0 && (
         <section className="mt-6">
-          <h2 className={`${LEYENDA} text-amber-700`}>Reversión · {resumen.reversiones.length}</h2>
-          <p className="mt-1 text-xs text-zinc-500">
+          <TituloLista color="bg-senal" texto="Reversión" total={resumen.reversiones.length} />
+          <p className="mt-1 text-xs text-acero">
             Faltantes que el auditor marcó como reversión; no cuentan como error de despacho.
           </p>
           <ListaPorUm
             lineas={resumen.reversiones}
-            color="text-amber-800"
+            color="text-tinta"
             texto={(linea) =>
               linea.cantidadVerificada === 0
                 ? `Reversión total de ${diferenciaDeLinea(linea)}`
@@ -98,28 +101,28 @@ export default function PantallaResumen({ despacho, lineas, onRegresar, onNueva 
 
       {resumen.excedentes.length > 0 && (
         <section className="mt-6">
-          <h2 className={`${LEYENDA} text-amber-700`}>Con excedente · {resumen.excedentes.length}</h2>
+          <TituloLista color="bg-senal" texto="Con excedente" total={resumen.excedentes.length} />
           <ListaPorUm
             lineas={resumen.excedentes}
-            color="text-amber-800"
+            color="text-tinta"
             texto={(linea) => `Sobran ${-diferenciaDeLinea(linea)}`}
           />
         </section>
       )}
 
       <section className="mt-6">
-        <h2 className={`${LEYENDA} text-zinc-500`}>Sobrantes</h2>
+        <TituloLista color="bg-acero" texto="Sobrantes" total={resumen.sobrantes.length} />
         {resumen.sobrantes.length === 0 ? (
-          <p className="mt-2 rounded-xl border border-zinc-200 bg-white px-4 py-4 text-sm text-zinc-600">
+          <p className="mt-2 border-2 border-linea bg-hoja px-4 py-4 text-sm text-acero">
             Ninguno: todo lo contado pertenece al despacho.
           </p>
         ) : (
-          <ul className={HOJA}>
+          <ul className="mt-2 divide-y divide-linea border-x border-b border-linea bg-hoja">
             {resumen.sobrantes.map((sobrante, indice) => (
-              <li key={`${sobrante.codigo}-${indice}`} className="p-4">
+              <li key={`${sobrante.codigo}-${indice}`} className="p-3">
                 <p className="font-mono text-sm font-bold">{sobrante.codigo}</p>
-                <p className="mt-0.5 text-sm text-zinc-700">
-                  {sobrante.descripcion} · {sobrante.cantidad} unidades
+                <p className="mt-0.5 text-sm">
+                  {sobrante.descripcion}, {sobrante.cantidad} unidades
                 </p>
               </li>
             ))}
@@ -128,14 +131,24 @@ export default function PantallaResumen({ despacho, lineas, onRegresar, onNueva 
       </section>
 
       <div className="mt-7 flex flex-col gap-3">
-        <Boton variante={completa ? 'secundario' : 'primario'} onClick={onRegresar}>
+        <Boton variante={completa ? 'secundario' : 'senal'} onClick={onRegresar}>
           Regresar y corregir
         </Boton>
-        <Boton variante={completa ? 'primario' : 'secundario'} onClick={onNueva}>
+        <Boton variante={completa ? 'senal' : 'secundario'} onClick={onNueva}>
           Nueva auditoría
         </Boton>
       </div>
     </main>
+  )
+}
+
+function TituloLista({ color, texto, total }: { color: string; texto: string; total: number }) {
+  return (
+    <h2 className="flex items-center gap-2 text-sm font-semibold">
+      <span aria-hidden="true" className={`size-2 ${color}`} />
+      {texto}
+      <span className="font-mono text-xs font-normal text-acero">{total}</span>
+    </h2>
   )
 }
 
@@ -153,23 +166,23 @@ function ListaPorUm({
   texto: (linea: LineaAuditoria) => string
 }) {
   return (
-    <div className="mt-3 space-y-4">
+    <div className="mt-2 space-y-4">
       {agruparPorUm(lineas).map((grupo) => (
         <section key={grupo.um}>
-          <h3 className="mb-1.5 flex items-baseline justify-between text-xs font-bold uppercase tracking-wider text-zinc-500">
-            <span>{grupo.um}</span>
-            <span className="font-mono">{grupo.lineas.length}</span>
-          </h3>
-          <ul className={HOJA}>
+          <div className="flex items-baseline justify-between border-b-2 border-tinta pb-1">
+            <h3 className="text-xs font-bold">{grupo.um}</h3>
+            <span className="font-mono text-xs text-acero">{grupo.lineas.length}</span>
+          </div>
+          <ul className="divide-y divide-linea border-x border-b border-linea bg-hoja">
             {grupo.lineas.map((linea, indice) => (
-              <li key={`${linea.referencia}-${indice}`} className="p-4">
+              <li key={`${linea.referencia}-${indice}`} className="p-3">
                 <div className="flex items-baseline justify-between gap-3">
                   <p className="font-mono text-sm font-bold">{linea.referencia}</p>
                   <p className={`font-mono text-sm font-bold ${color}`}>{texto(linea)}</p>
                 </div>
-                <p className="mt-0.5 text-sm text-zinc-700">{linea.descripcion}</p>
-                <p className="mt-1 text-xs text-zinc-500">
-                  Esperado {linea.cantidadEsperada} · verificado {linea.cantidadVerificada}
+                <p className="mt-0.5 text-sm">{linea.descripcion}</p>
+                <p className="mt-1 text-xs text-acero">
+                  Esperado {linea.cantidadEsperada} / verificado {linea.cantidadVerificada}
                 </p>
               </li>
             ))}

@@ -1,16 +1,55 @@
 @import 'tailwindcss';
 
 /*
-  Auditoría de despachos por PLC — estilos base.
+  Auditoría de despachos por PLC — sistema visual «Hoja de patio».
 
-  La app se usa a la intemperie y con una mano ocupada: se prioriza el
-  contraste alto, los botones grandes y la tipografía del sistema
-  (sin descargas, para que funcione sin conexión).
+  La app se usa de pie, con una mano ocupada y a la luz del patio de carga.
+  La paleta sale del papeleo real: papel de manifiesto, tinta, amarillo de
+  seguridad y sellos de inspección. Sin tarjetas SaaS ni decoración de más.
 */
+@theme {
+  --color-papel: #ecede6;
+  --color-hoja: #f8f8f3;
+  --color-tinta: #151a17;
+  --color-acero: #5c635b;
+  --color-linea: #c9ccc2;
+  --color-senal: #f5c400;
+  --color-senal-oscuro: #d9ad00;
+  --color-senal-claro: #fbf1c7;
+  --color-verde: #1f6b45;
+  --color-verde-claro: #dcebe1;
+  --color-rojo: #b02e22;
+  --color-rojo-claro: #f4ddd8;
+}
 
-/* Área inferior segura en celulares con barra de gestos. */
 :root {
+  /* Área inferior segura en celulares con barra de gestos. */
   --area-segura-inferior: env(safe-area-inset-bottom, 0px);
+  color-scheme: light;
+}
+
+html {
+  background-color: var(--color-papel);
+  color: var(--color-tinta);
+}
+
+body {
+  min-height: 100dvh;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    'Helvetica Neue',
+    Arial,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background-color: var(--color-senal);
+  color: var(--color-tinta);
 }
 
 /* Sin destello al tocar en móviles: los estados activos ya dan respuesta. */
@@ -18,7 +57,29 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Respeta la preferencia de menos movimiento (barra de avance). */
+/* Foco visible para cualquier control que no defina su propio contraste. */
+:focus-visible {
+  outline: 2px solid var(--color-tinta);
+  outline-offset: 2px;
+}
+
+input[type='checkbox'] {
+  accent-color: var(--color-tinta);
+}
+
+/*
+  Cinta de precaución: el único guiño gráfico del sistema. Se usa como
+  remate superior de la hoja de despacho, no como decoración repetida.
+*/
+.cinta-precaucion {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    var(--color-tinta) 0 10px,
+    var(--color-senal) 10px 20px
+  );
+}
+
+/* Respeta la preferencia de menos movimiento (galga de avance). */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

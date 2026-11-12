@@ -3,7 +3,7 @@
 //   la copia local si no hay conexión.
 // - Los archivos con huella (JS, CSS, iconos) no cambian: se sirven de la
 //   copia local desde la primera visita.
-const VERSION = 'auditoria-v1'
+const VERSION = 'auditoria-v2'
 
 self.addEventListener('install', (evento) => {
   evento.waitUntil(caches.open(VERSION).then((cache) => cache.add('./')))
